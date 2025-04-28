@@ -1,28 +1,42 @@
-
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from pydantic import BaseModel
 import uuid
-import json
 from typing import List, Optional
+from sqlalchemy import create_engine, Column, String, Integer
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker,Session
 
 app = FastAPI()
 
-# File path for data storage
-DATA_FILE = "publications.json"
+# Step 1: Define the PostgreSQL Database URL
+DATABASE_URL = "postgresql://postgres:postgres@localhost/postgres"
 
-# Function to read data from the JSON file
-def read_data():
-    try:
-        with open(DATA_FILE, "r") as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return []
+# Step 2: Create the SQLAlchemy Engine
+engine = create_engine(DATABASE_URL)
 
-# Function to write data to the JSON file
-def write_data(data):
-    with open(DATA_FILE, "w") as file:
-        json.dump(data, file, indent=4)
+# Step 3: Create a SessionLocal class to access the database
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Step 4: Define the Base for our SQLAlchemy models
+Base = declarative_base()
+
+# Step 5: Define the Publication database model (maps to the 'publications' table)
+class PublicationDB(Base):
+    __tablename__ = "publications"
+
+    id = Column(String, primary_key=True, index=True)
+    title = Column(String)
+    authors = Column(String)
+    journal = Column(String)
+    year = Column(Integer)
+    doi = Column(String)
+
+# Step 6: Create the database table if it doesn't exist (on application startup)
+Base.metadata.create_all(bind=engine)
+
+# Step 7: Pydantic models for request and response (same as before)
 class Publication(BaseModel):
     title: str
     authors: str
@@ -33,102 +47,81 @@ class Publication(BaseModel):
 class PublicationWithID(Publication):
     id: str
 
+# Step 8: Dependency to get a database session for each request
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Step 9: Update the API endpoints to use the database (these remain largely the same)
+
 @app.post("/publications/", response_model=PublicationWithID)
-async def create_publication(publication: Publication):
-    data = read_data()
-    new_publication = publication.dict()
-    new_publication["id"] = str(uuid.uuid4())
-    data.append(new_publication)
-    write_data(data)
-    return PublicationWithID(**new_publication)
+async def create_publication(publication: Publication, db: SessionLocal = Depends(get_db)): # type: ignore
+    db_publication = PublicationDB(id=str(uuid.uuid4()), **publication.dict())
+    db.add(db_publication)
+    db.commit()
+    db.refresh(db_publication)
+    return db_publication
 
-@app.get("/publications/", response_model=List[PublicationWithID]) # Searching data using query parameter
+@app.get("/publications/", response_model=List[PublicationWithID])
 async def read_publications(
-    publication_id: str=None,  # without none its a requuired field
-    title: str=None,
-    authors: str = None,
-    journal: str = None,
-    year: int = None,
-    doi: str = None,
+    publication_id: Optional[str] = Query(None),
+    title: Optional[str] = Query(None),
+    authors: Optional[str] = Query(None),
+    journal: Optional[str] = Query(None),
+    year: Optional[int] = Query(None),
+    doi: Optional[str] = Query(None),
+    db: SessionLocal = Depends(get_db),
 ):
-    print("I am in query parameter method")
-    data = read_data()
-    filtered_data = data
+    query = db.query(PublicationDB)
     if publication_id:
-        filtered_data = [item for item in filtered_data if item.get("id") == publication_id]
-            # Filter by other parameters
+        query = query.filter(PublicationDB.id == publication_id)
     if title:
-        filtered_data = [item for item in filtered_data if title in item.get("title", "")]
+        query = query.filter(PublicationDB.title.contains(title))
     if authors:
-        filtered_data = [item for item in filtered_data if authors in item.get("authors", "")]
+        query = query.filter(PublicationDB.authors.contains(authors))
     if journal:
-        filtered_data = [item for item in filtered_data if journal in item.get("journal", "")]
+        query = query.filter(PublicationDB.journal.contains(journal))
     if year:
-        filtered_data = [item for item in filtered_data if year == item.get("year", 0)]
+        query = query.filter(PublicationDB.year == year)
     if doi:
-        filtered_data = [item for item in filtered_data if doi in item.get("doi", "")]
-    if not filtered_data:
+        query = query.filter(PublicationDB.doi.contains(doi))
+
+    publications = query.all()
+    if not publications and (publication_id or title or authors or journal or year or doi):
         raise HTTPException(status_code=404, detail="Details not found")
-    return [PublicationWithID(**item) for item in filtered_data]
+    return publications
 
-
-'''app.get("/publications/{publication_id}", response_model=PublicationWithID) # Searching data using path variable
-async def read_publication(publication_id: str):
-    data = read_data()
-    for item in data:
-        if item["id"] == publication_id:
-            return PublicationWithID(**item)
-    print("I am in path variable method")
-    raise HTTPException(status_code=404, detail="Publication not found")'''
-
-'''@app.get("/publications/{publication_id}")
-async def read_publications(publication_id: str):
-    if not publication_id:
-        raise HTTPException(status_code=400, detail="publication_id is required")
-    data = read_data()
-    for item in data:
-        if item.get("id") == publication_id:
-            return PublicationWithID(**item)
-    raise HTTPException(status_code=404, detail="Publication not found")'''
-
-@app.get("/publications/{author_title}")
-async def read_publications(author_title: str):
-    print("I am in path variable method")
-    if not author_title:
-        raise HTTPException(status_code=400, detail="author name is required")
-    data = read_data()
-    for item in data:
-        if item.get("title") == author_title:
-            return PublicationWithID(**item)
-    raise HTTPException(status_code=404, detail="Author not found")
-
-@app.get("/publications/", response_model=List[PublicationWithID])   # Listing all records
-async def list_publications():
-    data = read_data()
-    return [PublicationWithID(**item) for item in data]
+@app.get("/publications/{publication_id}", response_model=PublicationWithID)
+async def read_publication(publication_id: str, db: SessionLocal = Depends(get_db)):
+    db_publication = db.query(PublicationDB).filter(PublicationDB.id == publication_id).first()
+    if db_publication is None:
+        raise HTTPException(status_code=404, detail="Publication not found")
+    return db_publication
 
 @app.put("/publications/{publication_id}", response_model=PublicationWithID)
-async def update_publication(publication_id: str, publication: Publication):
-    data = read_data()
-    for index, item in enumerate(data):
-        if item["id"] == publication_id:
-            updated_publication = publication.dict()
-            updated_publication["id"] = publication_id
-            data[index] = updated_publication
-            write_data(data)
-            return PublicationWithID(**updated_publication)
-    raise HTTPException(status_code=404, detail="Publication not found")
+async def update_publication(publication_id: str, publication: Publication, db: SessionLocal = Depends(get_db)):
+    db_publication = db.query(PublicationDB).filter(PublicationDB.id == publication_id).first()
+    if db_publication is None:
+        raise HTTPException(status_code=404, detail="Publication not found")
+    for key, value in publication.dict().items():
+        setattr(db_publication, key, value)
+    db.commit()
+    db.refresh(db_publication)
+    return db_publication
 
-@app.delete("/publications/{author_title}")
-async def delete_publication(author_title: str):
-    print(author_title)
-    data = read_data()
-    for index, item in enumerate(data):
-         print(f"Item: {index}, Item: {item}")
-                 # if "authors" in item and isinstance(item["authors"], list): #Check if the authors key exists, and is a list.
-         if author_title in item["authors"]:
-            print("I am in delete method")
-            del data[index]
-            write_data(data)
-            return
-    raise HTTPException(status_code=404, detail="Author not found")
+@app.delete("/publications/delete/{publication_id}", response_model=dict)
+async def delete_publication_by_id(publication_id: str, db: SessionLocal = Depends(get_db)):
+    db_publication = db.query(PublicationDB).filter(PublicationDB.id == publication_id).first()
+    if db_publication is None:
+        raise HTTPException(status_code=404, detail="Publication not found")
+    db.delete(db_publication)
+    db.commit()
+    return {"detail": f"Publication with id '{publication_id}' deleted successfully"}
+
+@app.get("/list_publications/", response_model=List[PublicationWithID])
+async def list_publications(db: SessionLocal = Depends(get_db)):
+    publications = db.query(PublicationDB).all()
+    return publications
