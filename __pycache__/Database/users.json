@@ -1,0 +1,23 @@
+[
+    {
+        "username": "Rekha Sharma",
+        "email": "rekha@abc.com",
+        "full_name": "Rekha Kumar1 Sharma",
+        "password": "resh1234",
+        "id": "ce640ed4-4504-4e46-8750-029176135577"
+    },
+    {
+        "username": "Vidushi",
+        "email": "vidushi@abc.com",
+        "full_name": "Vidushi Mangal",
+        "password": "vima1234",
+        "id": "a91e9efe-de4b-427a-9e1b-f1ced9f42b98"
+    },
+    {
+        "username": "Vedanshi",
+        "email": "vedanshi@abc.com",
+        "full_name": "Vedanshi Mangal",
+        "password": "vema1234",
+        "id": "8a2d097b-c5de-4657-98ff-370339b8a60a"
+    }
+]
