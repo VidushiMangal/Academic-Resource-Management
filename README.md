@@ -1,5 +1,5 @@
 
-# Academic Resource Management (ARM) 📚 
+# Academic Resource Management (ARM) 📚
 
 A FastAPI-based backend system designed for managing academic research records of students and faculty. The system supports secure login, and CRUD operations for users and research publications. It features JWT-based authentication and uses a hybrid data storage model.
 

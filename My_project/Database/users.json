@@ -1,0 +1,37 @@
+[
+  {
+    "id": "July-2502",
+    "username": "Rohan123",
+    "email": "rohan.fca@mriu.com",
+    "full_name": "Rohan Sharma",
+    "password": "mriu1234"
+  },
+  {
+    "id": "July-2503",
+    "username": "Pankaj123",
+    "email": "pankaj.fca@mriu.com",
+    "full_name": "pankaj Tripathi",
+    "password": "mriu1234"
+  },
+  {
+    "id": "July-2504",
+    "username": "Manas123",
+    "email": "manas.fca@mriu.com",
+    "full_name": "Manas Gupta",
+    "password": "mriu1234"
+  },
+  {
+    "id": "July-2505",
+    "username": "Riya123",
+    "email": "riya.fca@mriu.com",
+    "full_name": "Riya Singhal",
+    "password": "mriu1234"
+  },
+  {
+    "id": "July-2501",
+    "username": "Ravi123",
+    "email": "ravi.fca@mriu.com",
+    "full_name": "Ravi Shukla",
+    "password": "mriu1234"
+  }
+]
