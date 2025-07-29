@@ -25,7 +25,8 @@ def prepare_user_list(file_path: str = "./Database/users.json"):
     try:
         with open(file_path, "r") as f:
             user_data = json.load(f)
-            #return user_data
+            #print(user_data)
+    #        return user_data
     except FileNotFoundError:
         print(f"Error: File not found at {file_path}")
         return []
@@ -35,7 +36,9 @@ def prepare_user_list(file_path: str = "./Database/users.json"):
     for user_info in user_data:
         hashed_password=pwd_context.hash(user_info["password"])
         users.append(UserInDB(username=user_info["username"], hashed_password=hashed_password))
-
+    #print(f"{users} \n")
+    return users    
+        
 # Method to Verify Password
 def verify_password(plain_password: str, hashed_password: str):
    return pwd_context.verify(plain_password, hashed_password)
@@ -46,7 +49,8 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     if expires_delta:
         expire = datetime.now() + expires_delta
     else:
-        expire = datetime.now() + timedelta(minutes=120)
+        expire = datetime.now() + timedelta(minutes=60)
+
     to_encode["exp"] = expire  # exp is jwt standard to specify token expiration time
     encoded_jwt = jwt.encode( to_encode, SECRET_KEY, algorithm=ALGORITHM )  # Making the actual token
     return encoded_jwt
@@ -68,11 +72,19 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except ValidationError:
         raise credentials_exception
  
-router = APIRouter(prefix="/login")
+#router = APIRouter(prefix="/authentication")
+router = APIRouter(prefix="/authentication")
+prepare_user_list()
+app = FastAPI()
 
 @router.post("/token",response_model=Hashed_Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = next((user for user in users if user.username == form_data.username), None) # using generator 
+    print("I am in token method")
+    #prepare_user_list()
+    print(form_data.username)
+    print(users)
+    user = next((user for user in users if user.username == form_data.username), None)# using generator 
+    #print(user)
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,9 +92,9 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"} 
             )
     access_token_data = {"sub": user.username}  
+    print(access_token_data)
     access_token = create_access_token(data=access_token_data)
     return {"access_token": access_token, "token_type": "bearer"}
 
-app = FastAPI()
-prepare_user_list()
-app.include_router(router)
+#app = FastAPI()
+#app.include_router(router)

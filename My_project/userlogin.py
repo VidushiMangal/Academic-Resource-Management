@@ -5,11 +5,12 @@ import json
 #import uuid
 import os
 
-router = APIRouter(prefix="/users")
+router = APIRouter(prefix="/userlogin")
 app = FastAPI()
 
-USER_DATA_FILE = "Database/users.json"
-
+USER_DATA_FILE = "./Database/users.json"
+#USER_DATA_FILE ="C:/Users/Vidushi.Dev/Documents/work/Academic-Resource-Management/My_project/Database/users.json"
+#My_project\Database\users.json
 class User(BaseModel):
     id:str
     username: str
